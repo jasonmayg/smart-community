@@ -1,98 +1,132 @@
-# PRD — Smart Community (portfolio demo)
+# PRD: Smart Community (portfolio demo)
 
-**Author:** Jason Geng · **Status:** v1 demo · **Type:** interactive prototype with simulated data
+**Author:** Jason Geng  
+**Status:** v2 prototype  
+**Type:** interactive prototype with simulated data
 
-> A from-scratch prototype with fictional data, based on the community-canteen and resident-services product line I worked on. No original code, data, designs or names are used.
+> A from-scratch prototype with fictional data, based on a smart-community product I led. No original code, data, designs or names are used.
 
 ---
 
 ## 1. Problem
 
-Urban neighborhoods are aging fast. A typical community of ~800 households has 150–250 residents over 65; many live alone, can't cook every day, and don't use complex apps. At the same time:
+Residential communities are aging fast. A typical community of ~800 households has 150 to 250 residents over 65. Many of them live alone, can’t cook every day and don’t use complex apps. Four parties serve them through separate channels:
 
-| Party | Job to be done | Today's pain |
+| Party | Job to be done | Today’s pain |
 |---|---|---|
-| **Older resident** | "Eat a decent hot meal, get help when something breaks, not feel alone" | Cooking is hard; the canteen menu is on a paper board; repair requests go through a phone call nobody logs |
-| **Family member (often remote)** | "Know my parent is eating and OK" | No visibility unless they call |
-| **Community canteen operator** | "Cook the right amount and stay profitable on subsidized meals" | Demand swings by day and weather; subsidies are reconciled by hand; delivery to homebound seniors is ad hoc |
-| **Community manager / property office** | "Resolve issues fast and spot residents at risk" | Requests arrive by phone, chat apps and in person; no single queue; no early warning when someone stops showing up |
-| **Volunteers** | "Help when I can" | No simple way to pick up a delivery or a check-in task |
+| **Older resident** | “Eat a hot meal, get things fixed, not feel alone” | Paper menus; repairs go through a phone call nobody logs; apps assume good eyesight and typing |
+| **Family member (often remote)** | “Know my parent is OK” | No visibility unless they call |
+| **Property company** | “Resolve issues fast, collect fees, keep residents safe” | Requests arrive by phone, chat and in person, with no single queue; fee collection is manual; no early warning when someone stops showing up |
+| **Canteen operator** | “Cook the right amount and reach homebound residents” | Demand swings with weekday and weather; deliveries are ad hoc |
+| **Local merchants** | “Sell more with less waste” | Group buys run in chat groups; stock is a guess |
 
-**Core insight:** the daily meal is the most reliable touchpoint with an older resident. If the canteen and the service desk share one system, a missed meal becomes a wellbeing signal, not just lost revenue.
+**Core insight:** daily touchpoints (a lunch order, a door opening, a bill paid, a request typed) are small, reliable signals. One system that carries all of them can route work, flag risk and fund itself.
 
-## 2. Goals & non-goals
+## 2. Goals and non-goals
 
 **Goals (demo)**
-1. One resident journey that is simple enough for a 75-year-old: order a meal in ≤ 3 taps, file a repair in one sentence.
-2. Show how meal data, service requests and volunteer work feed one operations view.
-3. Demonstrate AI that routes work and flags risk, with a human always deciding.
+1. A resident journey simple enough for a 78-year-old: order lunch in 3 taps or fewer, report a problem in one sentence or by voice, check in with one button.
+2. One operations view where requests, care flags, canteen demand and merchant demand come from the same data.
+3. AI that routes work, flags risk and answers questions, always explains itself and never acts without a person.
+4. A business model that is visible: three paying customers.
 
-**Non-goals:** real payments, identity verification, medical advice, real messaging.
+**Non-goals:** real payments, identity verification, medical advice, real messaging, real sensors.
 
-## 3. Personas & views
+## 3. Personas and views
 
-1. **Resident** — Mrs. Chen, 78, lives alone, mild arthritis
-2. **Canteen** — operator of the community canteen
-3. **Community desk** — community manager handling requests and wellbeing
-4. **Volunteer** — neighbor who delivers meals and does check-ins
+1. **Resident:** Mrs. Chen, 78, lives alone, mild arthritis (resident app)
+2. **Property desk staff:** handle requests and fee collection
+3. **Care coordinator and volunteers:** wellbeing checks, deliveries, errands
+4. **Canteen operator:** orders, forecast, routes
+5. **Merchant:** group-buy deals and settlement
+6. **Platform business owner:** revenue by customer
 
-## 4. User stories (MVP)
+## 4. User stories
 
-**Resident (large-type, high-contrast, 3 big actions)**
-- R1 See today's meals with price after senior subsidy; order dine-in or delivery in ≤ 3 taps
-- R2 Subscribe to weekday lunches ("same as usual") and pause anytime
-- R3 Report a problem in plain words ("the hallway light on floor 3 is broken") — no forms
-- R4 Press "I'm OK today" or "I need help"
-- R5 See the community notice board read aloud (text-to-speech button)
+**Resident**
+- R1 Order today’s lunch (dine-in or delivery) and pay from the wallet in 3 taps or fewer
+- R2 Join or leave a weekday lunch plan (“same as usual”)
+- R3 Report a problem in plain words or by voice; get a plain answer about what happens next
+- R4 Press “I’m OK today” or “I need help”
+- R5 Hear community notices read aloud
+- R6 Pay the monthly property bill; ask a family member to top up the wallet
+- R7 Join a group buy; get refunded automatically if it doesn’t fill
+- R8 Ask the assistant a question and act on its suggestion with one button
+
+**Property desk**
+- D1 One queue for every channel with AI category, urgency, owner and response deadline, plus the cues that drove it
+- D2 Override the owner (logged); optionally compare with a live model
+- D3 See requests past deadline
+- D4 See fee collection and send reminders
+
+**Care**
+- C1 Watchlist of residents whose routines broke, with a score, named reasons and a 14-day signal strip
+- C2 Send a volunteer, call family, pause a meal plan, or dismiss
+- C3 Volunteers claim tasks and close them with an outcome; “No answer” raises an urgent case
 
 **Canteen**
-- C1 Today's orders: dine-in vs. delivery, subscriptions vs. one-off
-- C2 **AI demand forecast** for dine-in walk-ins, adjusted for weekday and weather
-- C3 Subsidy reconciliation: meals served × subsidy tier = amount to claim, exportable
-- C4 Delivery batch: group deliveries by building and hand them to volunteers
+- K1 Today’s orders by source
+- K2 Walk-in forecast for tomorrow with weather adjustment and an 80% range
+- K3 Delivery routes grouped by building and floor, at most six stops each
 
-**Community desk**
-- D1 One queue for all requests; **AI triage** assigns category (repair, sanitation, safety, care, noise, other), urgency, and suggested owner
-- D2 **Wellbeing watchlist**: residents flagged when routine breaks (e.g., subscribed lunch skipped 2+ days with no pause, no "I'm OK" check-in) — with reason shown
-- D3 Create a check-in task for a volunteer from any flag
-- D4 Dashboard: request volume, median resolution time, meals served, active volunteers
+**Merchants**
+- M1 Live deals with orders so far, minimum, forecast range and stock advice
+- M2 Chance of reaching the minimum before the window closes
+- M3 Settlement: sales, commission, payout
 
-**Volunteer**
-- V1 See open tasks nearby (deliveries, check-ins) and claim one
-- V2 Mark done with a quick note ("all fine", "needs follow-up")
+**Business**
+- B1 Revenue by paying customer and stream
+- B2 Every payment split between recipients
 
-## 5. AI & algorithm features
+## 5. AI and algorithm features
 
 | Feature | Decision it changes | Method in demo | Honest label |
 |---|---|---|---|
-| **Request triage** | Who handles a request, how fast | Keyword + phrase scoring classifier with urgency rules (e.g., "gas", "fell", "no water" → urgent); shows matched cues | Real classifier on fictional requests |
-| **Wellbeing flags** | Which residents get a check-in today | Rules on behavioral signals: missed subscribed meals, missing check-ins, sudden drop in orders; risk score with reasons | Real rules on simulated activity |
-| **Demand forecast** | How many walk-in meals to cook | Day-of-week average × weather factor × trend | Real algorithm on simulated history |
-| **Delivery batching** | Volunteer routes | Group by building, then floor; cap per volunteer | Real heuristic |
+| **Request triage** | Who handles a request, how fast | Cue-weight classifier (7 categories) with urgency rules and deadlines; optional Claude comparison returning category, urgency, reason and a resident reply | Real code; fictional requests |
+| **Assistant** | What a resident does next | Offline handbook retrieval; live mode grounded in the same handbook, JSON reply plus at most one action, resident confirms | Real code; live mode optional |
+| **Wellbeing score** | Who gets a check-in today | Named signals with fixed points (meals, door sensor vs. own baseline, check-ins), context only when another signal fired | Real rules; simulated signals |
+| **Walk-in forecast** | How much to cook | Weighted same-weekday average × weather; back-tested range | Real code; simulated history |
+| **Group-buy forecast** | How much stock a merchant brings | Pace ÷ expected share, blended with history by time elapsed; 70th-percentile stock | Real code; simulated history |
+| **Delivery routes** | Volunteer workload | Group by building then floor, cap 6 | Real heuristic |
 
-**Guardrails:** AI never contacts a resident on its own; every flag shows *why*; staff can dismiss with a reason; flags auto-expire. Wellbeing data is visible only to the community desk.
+**Guardrails:** AI never contacts a resident or acts by itself. Every flag shows why it fired. Flags expire daily. Wellbeing data is visible only to care staff. There are no cameras and no location tracking.
 
-## 6. Success metrics (what I would measure in production)
+## 6. Business model
+
+| Customer | Pays for | Demo pricing |
+|---|---|---|
+| Property company | Software subscription; in-app fee collection | $1.20 per household per month; 0.6% of fees collected |
+| Residents | Canteen meals; delivery | $5.50 senior lunch (30% gross margin); $1.00 delivery |
+| Merchants | Group-buy sales | 8% commission |
+
+Software gets the platform into a community. Everyday services make it pay.
+
+## 7. Success metrics (what I would measure in production)
 
 | Area | Metric | Target |
 |---|---|---|
-| Access | % of residents 65+ who order at least weekly | > 40% |
-| Ease | Median taps to order a meal (resident view) | ≤ 3 |
-| Service | Median time to resolve a request | < 48h; urgent < 4h |
-| Triage | % of AI categories accepted without change | > 85% |
-| Care | Flagged residents checked within 24h | > 95% |
-| Canteen | Food waste % | < 8% |
-| Finance | Subsidy claims prepared automatically | 100% |
+| Access | Residents 65+ ordering lunch at least weekly | > 40% |
+| Ease | Median taps to order lunch | ≤ 3 |
+| Service | Urgent requests answered | < 4 h |
+| Triage | AI category accepted without change | > 85% |
+| Care | Flagged residents checked within 24 h | > 95% |
+| Care | Flags that turned out to need help | track; tune thresholds if < 20% |
+| Canteen | Food waste | < 8% |
+| Merchants | Group-buy stock left over | < 5% |
+| Business | Revenue per household per month | > 5× software price |
 
-## 7. Demo script (2 minutes)
+## 8. Demo script (2 minutes)
 
-1. **Resident:** Mrs. Chen orders today's lunch for delivery in 3 taps → reports "water leaking from the ceiling in my bathroom".
-2. **Community desk:** the request lands as *Repair, high priority* with the cues highlighted → assign. Wellbeing watchlist shows Mr. Zhao skipped two subscribed lunches → create a check-in.
-3. **Volunteer:** claims the check-in and Mrs. Chen's delivery → marks done.
-4. **Canteen:** forecast for tomorrow (rain → more deliveries) → subsidy reconciliation.
+1. **Resident:** order steamed fish for delivery and pay. Report “Water is leaking from my bathroom ceiling”. Press “I’m OK”. Ask the assistant “How much is my bill?” and pay it.
+2. **Property desk:** the leak is *Repair, high*, with the cue words highlighted; one request is past its deadline.
+3. **Care:** Mr. Zhao (85) has missed two plan lunches, his door activity has dropped and he hasn’t checked in. Send a volunteer, who reports “No answer”, and an urgent case appears at the desk.
+4. **Group buying:** join the eggs deal in the resident app and watch the forecast and stock move.
+5. **Revenue:** every payment from step 1, split between the property company, canteen, merchant and platform.
 
-## 8. Risks & open questions
+## 9. Risks and open questions
 
-- Elderly users: a mini-app is a barrier for some; phone and in-person channels must feed the same queue (staff can enter on behalf).
-- Wellbeing signals are sensitive: consent at sign-up, family members only see what the resident allows.
-- False positives in flags create visit fatigue — tune thresholds and track "flag → real issue" rate.
+- Some older residents won’t use any app. Phone and front-desk channels must feed the same queue, and staff can file on a resident’s behalf.
+- Wellbeing signals are sensitive. They need consent at sign-up, and family sees only what the resident allows.
+- False positives cause visit fatigue, so track the flag-to-real-issue rate and tune the thresholds.
+- A live model can misroute an urgent case. Keep the rules’ urgency as a floor, so the model can only raise it.
+- Merchant quality reflects on the platform, so it needs ratings and automatic refunds for missed minimums.
