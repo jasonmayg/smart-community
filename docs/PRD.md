@@ -1,7 +1,7 @@
 # PRD: Smart Community (portfolio demo)
 
 **Author:** Jason Geng  
-**Status:** v2 prototype  
+**Status:** v3 prototype  
 **Type:** interactive prototype with simulated data
 
 > A from-scratch prototype with fictional data, based on a smart-community product I led. No original code, data, designs or names are used.
@@ -69,6 +69,29 @@ Residential communities are aging fast. A typical community of ~800 households h
 - K2 Walk-in forecast for tomorrow with weather adjustment and an 80% range
 - K3 Delivery routes grouped by building and floor, at most six stops each
 
+**Work orders (v3)**
+- W1 Every request becomes a work order: new → assigned → in progress (on hold) → done → resident confirms or reopens
+- W2 Resident can expedite once with a reason; staff can raise urgency further
+- W3 Overdue orders escalate automatically: department lead, then property manager (50% past deadline), then group (100% past)
+- W4 Staff correct category, department, urgency or asset with a structured reason; duplicates are merged and the second requester follows the original
+- W5 AI assist on every order: matched asset, whether the lifecycle model had already flagged it, suggested assignee, likely duplicates
+- W6 Triage accuracy is computed from corrections and shown on the queue
+
+**Facilities (v3)**
+- F1 Registry of lights, door readers, elevator doors, pumps and circuits with install date, usage rate and sensor status
+- F2 Per asset: life used, failure probability in 30/90/365 days, best replacement age and date, and policy (planned or run to failure)
+- F3 Condition alerts when a health signal drifts from the asset’s own baseline
+- F4 Time to notice a failure, with or without sensors, and the cost of retrofitting sensors by building
+- F5 Replacements due in 90 days batched into one visit per building; approving creates preventive work orders
+- F6 AI-written maintenance plan (offline from model outputs, or by Claude)
+
+**Organization and access (v3)**
+- O1 Group → properties → departments → staff; property → households → head, adults, older adults, children
+- O2 Roles: platform admin, group admin, property manager, department lead, staff (title by department), household head, adult, older adult, child
+- O3 Anyone can grant only roles below their own and only inside their scope; department leads add staff to their department only; household heads add family only; only management registers a household head
+- O4 Pages and actions follow permissions (a technician sees his department’s orders and facility health; a household head sees his household)
+- O5 Every grant, removal and limit change is logged; the group sees a portfolio of its properties
+
 **Merchants**
 - M1 Live deals with orders so far, minimum, forecast range and stock advice
 - M2 Chance of reaching the minimum before the window closes
@@ -87,6 +110,8 @@ Residential communities are aging fast. A typical community of ~800 households h
 | **Wellbeing score** | Who gets a check-in today | Named signals with fixed points (meals, door sensor vs. own baseline, check-ins), context only when another signal fired | Real rules; simulated signals |
 | **Walk-in forecast** | How much to cook | Weighted same-weekday average × weather; back-tested range | Real code; simulated history |
 | **Group-buy forecast** | How much stock a merchant brings | Pace ÷ expected share, blended with history by time elapsed; 70th-percentile stock | Real code; simulated history |
+| **Facility lifecycle** | When to replace each asset, which to watch | Weibull over usage, conditional failure probability, age-replacement cost minimization, baseline drift on sensor signals | Real code; simulated ages and signals |
+| **Work-order assist** | Who gets the job, whether it’s already known | Text → asset match, prediction cross-check, least-loaded assignee, duplicate detection | Real code |
 | **Delivery routes** | Volunteer workload | Group by building then floor, cap 6 | Real heuristic |
 
 **Guardrails:** AI never contacts a resident or acts by itself. Every flag shows why it fired. Flags expire daily. Wellbeing data is visible only to care staff. There are no cameras and no location tracking.
@@ -114,6 +139,10 @@ Software gets the platform into a community. Everyday services make it pay.
 | Canteen | Food waste | < 8% |
 | Merchants | Group-buy stock left over | < 5% |
 | Business | Revenue per household per month | > 5× software price |
+| Work orders | Resolved before deadline | > 90% |
+| Work orders | Reopened after “fixed” | < 5% |
+| Facilities | Failures caught by a sensor or prediction before a resident reports | > 60% |
+| Facilities | Emergency call-outs vs planned replacements | falling quarter over quarter |
 
 ## 8. Demo script (2 minutes)
 

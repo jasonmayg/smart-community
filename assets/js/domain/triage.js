@@ -3,7 +3,7 @@
 // and the app shows both, so staff can see when they disagree.
 
 export const CATEGORIES = {
-  repair: { label: 'Repair', owner: 'Maintenance team', cues: { leak: 3, leaking: 3, broken: 2, 'not working': 2, light: 1.5, bulb: 2, door: 1.5, lock: 2, elevator: 2, lift: 2, heater: 2, 'no heat': 3, toilet: 2, faucet: 2, pipe: 2.5, window: 1.5, ceiling: 1.5, 'no water': 3, outlet: 2, power: 2 } },
+  repair: { label: 'Repair', owner: 'Maintenance team', cues: { 'card reader': 3, reader: 2, fob: 2, gate: 1.5, fan: 2, flickering: 2, flicker: 2, battery: 1.5, chirping: 1.5, leak: 3, leaking: 3, broken: 2, 'not working': 2, light: 1.5, bulb: 2, door: 1.5, lock: 2, elevator: 2, lift: 2, heater: 2, 'no heat': 3, toilet: 2, faucet: 2, pipe: 2.5, window: 1.5, ceiling: 1.5, 'no water': 3, outlet: 2, power: 2 } },
   safety: { label: 'Safety', owner: 'Security', cues: { smoke: 3, fire: 3, gas: 3, smell: 1.2, smells: 1.2, stranger: 2, 'break-in': 3, alarm: 2, sparks: 3, burning: 3, 'carbon monoxide': 3, unsafe: 2 } },
   care: { label: 'Care', owner: 'Care coordinator', cues: { fell: 3, fall: 2.5, dizzy: 3, 'chest pain': 4, pain: 2, sick: 2, lonely: 2.5, alone: 1.2, medicine: 2, medication: 2, hospital: 2, confused: 2.5, help: 1, "can't get up": 4, "haven't seen": 2.5, 'not answering': 2.5 } },
   sanitation: { label: 'Sanitation', owner: 'Cleaning crew', cues: { trash: 2.5, garbage: 2.5, rubbish: 2, dirty: 2, mice: 3, rats: 3, cockroach: 3, bugs: 2, mess: 1.5, overflowing: 2, litter: 2 } },

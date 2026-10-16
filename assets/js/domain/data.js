@@ -75,7 +75,7 @@ export const SEED_REQUESTS = [
   { id: 'q2', who: 'Mrs. Rossi, E-201', src: 'App', text: 'Trash room is overflowing and there are mice', t: '8:40 AM', ageH: 3 },
   { id: 'q3', who: 'Front desk', src: 'Walk-in', text: "Neighbor says Mrs. Haas is not answering her door since yesterday", t: '9:05 AM', ageH: 2 },
   { id: 'q4', who: 'Mr. Park, B-503', src: 'App', text: 'Loud drilling upstairs late at night again', t: '9:31 AM', ageH: 1.5 },
-  { id: 'q5', who: 'Mrs. Lund, F-104', src: 'Phone', text: 'I think I was charged twice for the September property fee', t: '10:02 AM', ageH: 1 },
+  { id: 'q5', who: 'Mrs. Lund, F-104', src: 'Phone', text: 'I think I was charged twice for the September property fee', t: 'Thu 11:40 PM', ageH: 38 },
 ];
 
 // ---------------------------------------------------------------- group buying

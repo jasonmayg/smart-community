@@ -87,7 +87,7 @@ export function renderCare(el) {
       if (note !== 'All fine') {
         const text = `${t.text.split('.')[0]}: ${note.toLowerCase()}`;
         fileRequest(text, note === 'No answer' ? { ...triage('not answering'), cat: 'care', label: 'Care', owner: 'Care coordinator', urgency: 'urgent' } : { ...triage(text), cat: 'care', label: 'Care', owner: 'Care coordinator', urgency: 'high' }, { who: 'Volunteer Ana', src: t.kind });
-        log('alert', `<b>Property desk</b>: follow-up from a volunteer, “${esc(text)}”.`);
+        log('alert', `<b>Work orders</b>: follow-up from a volunteer, “${esc(text)}”.`);
         toast('Follow-up sent to the desk', 'alert');
       } else toast('Marked done');
     }

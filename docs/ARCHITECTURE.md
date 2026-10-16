@@ -16,13 +16,16 @@ assets/js/
   domain/             product logic: pure, DOM-free, unit-tested
     data.js           fictional community, residents, deals, pricing, handbook
     triage.js         request classifier, deadlines, model prompt + validation
+    workorders.js     work-order state machine, expedite, escalation, corrections, merge, AI quality
+    assets.js         facility registry, Weibull lifecycle, optimal replacement, drift, batching, text→asset match
+    org.js            group/property/department/household tree, roles, permissions, delegation rules
     wellbeing.js      explainable risk score and watchlist
     forecast.js       walk-in and group-buy forecasts
     routes.js         delivery route batching
     ledger.js         payment splits and revenue by customer
     assistant.js      offline answers, model prompt, reply validation
   views/              one file per page; render(root) returns a cleanup function
-tests/domain.test.mjs node:test, run in CI on every push
+tests/*.test.mjs      node:test (30 tests), run in CI on every push
 ```
 
 ## Rules the code follows
@@ -31,7 +34,9 @@ tests/domain.test.mjs node:test, run in CI on every push
 2. **One store, changed only through actions.** Views call `store.update` or the actions in `state.js`; every page subscribes with `store.onChange` and repaints, so a payment in the resident app updates the revenue page and the merchant forecast.
 3. **Views clean up after themselves.** `render(root)` returns an unsubscribe; the router calls it before mounting the next page, so listeners never pile up.
 4. **Model output is untrusted input.** `fromModel` and `parseModelReply` validate categories, urgencies and action types against fixed lists, and anything else falls back to the offline answer. The resident confirms every suggested action.
-5. **Every AI feature works offline.** The live model is an upgrade, not a dependency.
+5. **Permissions live in one place.** `domain/org.js` decides who can see a page (`canSee`), take an action (`can`), and grant or remove access (`checkGrant`, `checkRevoke`). Views ask; they never hard-code roles.
+6. **Work-order changes are transitions, not edits.** `state.act(id, fn)` runs a transition from `domain/workorders.js` on a copy; if it throws (for example, starting a closed order), nothing is saved and the reason is shown.
+7. **Every AI feature works offline.** The live model is an upgrade, not a dependency.
 
 ## Data flow example: “Water is leaking from my bathroom ceiling”
 

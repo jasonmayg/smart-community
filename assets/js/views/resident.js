@@ -4,7 +4,9 @@ import { $, toast, sheet } from '../lib/ui.js';
 import { ico } from '../lib/icons.js';
 import { esc, money, timeNow } from '../lib/format.js';
 import { llm, llmReady, ask, extractJSON } from '../lib/llm.js';
-import { store, log, pay, topUp, fileRequest, addTask, billTotal } from '../state.js';
+import { store, log, pay, topUp, fileRequest, addTask, billTotal, act } from '../state.js';
+import * as WO from '../domain/workorders.js';
+import { DEPARTMENTS } from '../domain/org.js';
 import { R, ME, MENU, LUNCH_PRICE, BILL, DEALS, MERCHANTS } from '../domain/data.js';
 import { triage, fromModel, merge, residentReply, TRIAGE_SYSTEM } from '../domain/triage.js';
 import { offlineAnswer, systemPrompt, parseModelReply, ACTION_LABEL } from '../domain/assistant.js';
@@ -52,7 +54,26 @@ function homeScreen() {
       <button class="big help" data-go="help">${ico('phone')}<span>I need help</span></button>
     </div>
     <div class="notice"><b>From the community desk</b><span id="noticeText">Free flu shots in the canteen on Thursday, 10 to 12. Bring your ID card.</span><br><button class="linkbtn" data-go="speak">${ico('speaker')}Read this aloud</button></div>
-    <label class="toggle"><span>Weekday lunch, same as usual</span><span class="switch"><input type="checkbox" id="planToggle" ${s.mealPlan ? 'checked' : ''} aria-label="Weekday lunch plan"></span></label>`;
+    <label class="toggle"><span>Weekday lunch, same as usual</span><span class="switch"><input type="checkbox" id="planToggle" ${s.mealPlan ? 'checked' : ''} aria-label="Weekday lunch plan"></span></label>
+    ${myRequests()}`;
+}
+
+// Plain-language status for the resident's own requests.
+const mine = () => S().orders.filter(o => o.who.startsWith(me.name) && o.status !== 'cancelled');
+function plainStatus(o) {
+  const who = o.assignee ? o.assignee.split(' ')[0] : null, dept = DEPARTMENTS[o.dept]?.name.toLowerCase();
+  return { new: `Received. Finding the right person in ${dept}.`, assigned: `${who} from ${dept} will take care of it.`, in_progress: `${who} is working on it now.`,
+    on_hold: `Waiting: ${(o.hold || '').toLowerCase()}.`, done: `${who} says it’s fixed${o.fix ? ` (${o.fix.toLowerCase()})` : ''}. Is it?`, closed: 'Fixed. Thank you for telling us.' }[o.status];
+}
+function myRequests() {
+  const list = mine().sort((a, b) => (a.status === 'done' ? -1 : 0) - (b.status === 'done' ? -1 : 0) || (WO.isOpen(b) - WO.isOpen(a))).slice(0, 3);
+  if (!list.length) return '';
+  return `<div class="m-title" style="font-size:20px">My requests</div>${list.map(o => `<div class="m-card req-card">
+    <div class="row" style="justify-content:space-between;gap:8px"><b style="font-size:17px">${esc(o.text.length > 48 ? o.text.slice(0, 46) + '…' : o.text)}</b>${o.urgency !== 'normal' && WO.isOpen(o) ? `<span class="pill ${o.urgency}">${o.urgency === 'urgent' ? 'Urgent' : 'Priority'}</span>` : ''}</div>
+    <div style="font-size:16px;margin-top:4px">${esc(plainStatus(o))}</div>
+    ${o.status === 'done' ? `<div class="pair" style="margin-top:10px"><button class="big okay" data-confirm="${o.id}" style="font-size:17px;padding:12px">${ico('check')}Yes, fixed</button><button class="big calm" data-reopen="${o.id}" style="font-size:17px;padding:12px">${ico('refresh')}Still broken</button></div>` : ''}
+    ${WO.isOpen(o) && o.expedites === 0 && o.urgency !== 'urgent' ? `<button class="linkbtn" data-expedite="${o.id}">${ico('bolt')}This is urgent</button>` : WO.isOpen(o) && o.expedites ? '<div class="tiny muted" style="margin-top:6px">You asked to speed this up. The team lead has been told.</div>' : ''}
+  </div>`).join('')}`;
 }
 
 function lunchScreen() {
@@ -163,6 +184,9 @@ async function onClick(e) {
   if (b.dataset.ex) { $('#reportText', root).value = b.dataset.ex; return; }
   if (b.dataset.q) return askAssistant(b.dataset.q);
   if (b.dataset.join) return joinDeal(b.dataset.join);
+  if (b.dataset.confirm) { const r = act(b.dataset.confirm, o => WO.confirm(o, 5, me.name, timeNow())); if (r.ok) { log('check', `<b>Work order</b>: ${me.name} confirmed “${esc(r.order.text)}” is fixed.`); toast('Thank you. Request closed.'); } return; }
+  if (b.dataset.reopen) { const r = act(b.dataset.reopen, o => WO.reopen(o, 'Resident says it is still broken', me.name, timeNow())); if (r.ok) { log('refresh', `<b>Work order</b> reopened by ${me.name}: “${esc(r.order.text)}” is still broken. Sent back to ${esc(r.order.assignee)}.`); toast('Sorry about that. We sent it back to the technician.', 'refresh'); } return; }
+  if (b.dataset.expedite) return expediteSheet(b.dataset.expedite);
   if (b.dataset.act) return runAction(+b.dataset.act);
   const g = b.dataset.go; if (!g) return;
   if (g === 'home') return go('home');
@@ -202,6 +226,23 @@ function payLunch() {
   toast('Lunch ordered');
 }
 
+function expediteSheet(id) {
+  sheet($('#phoneScreen', root), `<div class="m-title">Why is it urgent?</div>
+    ${['I could fall in the dark', 'I can’t get in or out', 'Water damage is spreading', 'I have no heat or water'].map(r => `<button class="choice" data-why="${r}">${r}</button>`).join('')}
+    <button class="big calm" data-close>Never mind</button>`, {
+    onMount(sh, close) {
+      sh.addEventListener('click', e => {
+        const c = e.target.closest('[data-why]'); if (!c) return;
+        const r = act(id, o => WO.expedite(o, c.dataset.why, me.name, timeNow(), { requester: true }));
+        close();
+        if (!r.ok) return toast(r.reason, 'alert');
+        log('bolt', `<b>Work order</b> expedited by ${me.name}: ${esc(c.dataset.why.toLowerCase())}. Now <b>${r.order.urgency}</b>; ${esc(DEPARTMENTS[r.order.dept].leadTitle.toLowerCase())} notified.`);
+        toast('We’ve moved it up the list.', 'bolt');
+      });
+    },
+  });
+}
+
 async function sendReport(text) {
   if (!text) { $('#reportText', root).focus(); return toast('Type, speak or pick what is wrong first', 'alert'); }
   let t = triage(text), via = 'rules';
@@ -215,7 +256,7 @@ async function sendReport(text) {
   }
   fileRequest(text, t);
   ui.lastReply = t.reply || residentReply(t);
-  log('wrench', `<b>Property desk</b> queue: “${esc(text)}” → <b>${t.label}</b>, <b>${t.urgency}</b>, to ${t.owner}${via === 'model' ? ' (Claude)' : ''}.`);
+  log('wrench', `<b>Work orders</b>: “${esc(text)}” → <b>${t.label}</b>, <b>${t.urgency}</b>, to ${t.owner}${via === 'model' ? ' (Claude)' : ''}.`);
   go('home', 'reported');
 }
 
@@ -292,7 +333,7 @@ function runAction(i) {
     const req = text || prev?.text || 'Question from the assistant';
     const t = triage(req);
     fileRequest(req, t, { src: 'Assistant' });
-    log('wrench', `<b>Property desk</b> queue: “${esc(req)}” → <b>${t.label}</b>, <b>${t.urgency}</b>, to ${t.owner} (filed from the assistant).`);
+    log('wrench', `<b>Work orders</b>: “${esc(req)}” → <b>${t.label}</b>, <b>${t.urgency}</b>, to ${t.owner} (filed from the assistant).`);
     store.update(s => { s.chat.push({ from: 'bot', text: residentReply(t) }); });
   }
 }
