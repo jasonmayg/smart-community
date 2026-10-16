@@ -4,7 +4,7 @@ import { $, toast, sheet } from '../lib/ui.js';
 import { ico } from '../lib/icons.js';
 import { esc, money, timeNow } from '../lib/format.js';
 import { llm, llmReady, ask, extractJSON } from '../lib/llm.js';
-import { store, log, pay, topUp, fileRequest, addTask, billTotal, act } from '../state.js';
+import { store, log, pay, topUp, fileRequest, addTask, billTotal, transition, isOffline, orders } from '../state.js';
 import * as WO from '../domain/workorders.js';
 import { DEPARTMENTS } from '../domain/org.js';
 import { R, ME, MENU, LUNCH_PRICE, BILL, DEALS, MERCHANTS } from '../domain/data.js';
@@ -41,7 +41,9 @@ function homeScreen() {
   if (ui.screen === 'lunch') return lunchScreen();
   if (ui.screen === 'report') return reportScreen();
   if (ui.screen === 'reported') return `<div class="done-msg"><b>Thank you.</b><br>${esc(ui.lastReply)}</div><button class="big calm" data-go="home">${ico('home')}Back to home</button>`;
-  if (ui.screen === 'helped') return `<div class="done-msg alert"><b>The community desk has been told.</b><br>The care coordinator will call you in the next few minutes. If this is an emergency, call 911.</div><button class="big calm" data-go="home">${ico('home')}Back to home</button>`;
+  if (ui.screen === 'helped') return isOffline()
+    ? `<div class="done-msg alert"><b>Your phone has no internet.</b><br>Your alert is saved and will be sent when the connection is back. Don’t wait: call the community desk now.</div><a class="big help" href="tel:+15550100142">${ico('phone')}<span>Call the desk<small>(555) 010-0142, 24 hours</small></span></a><a class="big calm" href="tel:911">${ico('phone')}<span>Call 911</span></a><button class="big calm" data-go="home">${ico('home')}Back to home</button>`
+    : `<div class="done-msg alert"><b>The community desk has been told.</b><br>The care coordinator will call you in the next few minutes. If this is an emergency, call 911.</div><button class="big calm" data-go="home">${ico('home')}Back to home</button>`;
   const lunch = s.lunch ? MENU.find(m => m.id === s.lunch.id) : null;
   return `
     <div class="hello">${greet()}, ${me.name}</div><div class="date">${dateStr}</div>
@@ -59,7 +61,7 @@ function homeScreen() {
 }
 
 // Plain-language status for the resident's own requests.
-const mine = () => S().orders.filter(o => o.who.startsWith(me.name) && o.status !== 'cancelled');
+const mine = () => orders().filter(o => o.who.startsWith(me.name) && o.status !== 'cancelled');
 function plainStatus(o) {
   const who = o.assignee ? o.assignee.split(' ')[0] : null, dept = DEPARTMENTS[o.dept]?.name.toLowerCase();
   return { new: `Received. Finding the right person in ${dept}.`, assigned: `${who} from ${dept} will take care of it.`, in_progress: `${who} is working on it now.`,
@@ -184,8 +186,8 @@ async function onClick(e) {
   if (b.dataset.ex) { $('#reportText', root).value = b.dataset.ex; return; }
   if (b.dataset.q) return askAssistant(b.dataset.q);
   if (b.dataset.join) return joinDeal(b.dataset.join);
-  if (b.dataset.confirm) { const r = act(b.dataset.confirm, o => WO.confirm(o, 5, me.name, timeNow())); if (r.ok) { log('check', `<b>Work order</b>: ${me.name} confirmed “${esc(r.order.text)}” is fixed.`); toast('Thank you. Request closed.'); } return; }
-  if (b.dataset.reopen) { const r = act(b.dataset.reopen, o => WO.reopen(o, 'Resident says it is still broken', me.name, timeNow())); if (r.ok) { log('refresh', `<b>Work order</b> reopened by ${me.name}: “${esc(r.order.text)}” is still broken. Sent back to ${esc(r.order.assignee)}.`); toast('Sorry about that. We sent it back to the technician.', 'refresh'); } return; }
+  if (b.dataset.confirm) { const r = transition(b.dataset.confirm, 'confirm', { rating: 5 }); if (r.ok) { log('check', `<b>Work order</b>: ${me.name} confirmed “${esc(r.order.text)}” is fixed.`); toast('Thank you. Request closed.'); } return; }
+  if (b.dataset.reopen) { const r = transition(b.dataset.reopen, 'reopen', { reason: 'Resident says it is still broken' }); if (r.ok) { log('refresh', `<b>Work order</b> reopened by ${me.name}: “${esc(r.order.text)}” is still broken. Sent back to ${esc(r.order.assignee)}.`); toast('Sorry about that. We sent it back to the technician.', 'refresh'); } return; }
   if (b.dataset.expedite) return expediteSheet(b.dataset.expedite);
   if (b.dataset.act) return runAction(+b.dataset.act);
   const g = b.dataset.go; if (!g) return;
@@ -215,7 +217,7 @@ function payLunch() {
   const m = MENU.find(x => x.id === ui.pick), deliver = ui.mode === 'deliver';
   const amount = LUNCH_PRICE.senior + (deliver ? LUNCH_PRICE.delivery : 0);
   const res = pay({ kind: 'lunch', amount, label: `Lunch, ${m.name.toLowerCase()}`, delivery: deliver ? LUNCH_PRICE.delivery : 0 });
-  if (!res.ok) return toast(res.reason + ' Ask your family to add money on the Bills tab.', 'alert');
+  if (!res.ok) return toast(res.reason + (res.offline ? ' Your lunch can be ordered when you’re back online, or call the canteen.' : ' Ask your family to add money on the Bills tab.'), 'alert');
   store.update(s => { s.lunch = { id: m.id, mode: ui.mode, price: amount }; });
   log('utensils', `<b>Canteen</b> received an order: ${esc(m.name)}, ${deliver ? `delivery to ${me.apt}` : 'dine-in'}, paid ${money(amount)}.`);
   if (deliver) {
@@ -233,7 +235,7 @@ function expediteSheet(id) {
     onMount(sh, close) {
       sh.addEventListener('click', e => {
         const c = e.target.closest('[data-why]'); if (!c) return;
-        const r = act(id, o => WO.expedite(o, c.dataset.why, me.name, timeNow(), { requester: true }));
+        const r = transition(id, 'expedite', { reason: c.dataset.why, requester: true });
         close();
         if (!r.ok) return toast(r.reason, 'alert');
         log('bolt', `<b>Work order</b> expedited by ${me.name}: ${esc(c.dataset.why.toLowerCase())}. Now <b>${r.order.urgency}</b>; ${esc(DEPARTMENTS[r.order.dept].leadTitle.toLowerCase())} notified.`);
@@ -255,7 +257,7 @@ async function sendReport(text) {
     ui.busy = false;
   }
   fileRequest(text, t);
-  ui.lastReply = t.reply || residentReply(t);
+  ui.lastReply = isOffline() ? 'Your phone has no internet right now, so this is saved on the phone. It will be sent by itself as soon as you are back online.' : t.reply || residentReply(t);
   log('wrench', `<b>Work orders</b>: “${esc(text)}” → <b>${t.label}</b>, <b>${t.urgency}</b>, to ${t.owner}${via === 'model' ? ' (Claude)' : ''}.`);
   go('home', 'reported');
 }
@@ -269,7 +271,7 @@ function pressHelp() {
 function payBill() {
   const total = billTotal();
   const res = pay({ kind: 'bill', amount: total, label: `${BILL.period} property bill` });
-  if (!res.ok) return toast(res.reason + ' Ask your family to add money first.', 'alert');
+  if (!res.ok) return toast(res.reason + (res.offline ? '' : ' Ask your family to add money first.'), 'alert');
   store.update(s => { s.billPaid = true; });
   log('receipt', `<b>Property company</b> received ${money(res.parts[0].amount)} for ${me.apt}. Platform payment fee ${money(res.parts[1].amount)}.`);
   sheet($('#phoneScreen', root), `<div class="m-title">Bill paid</div><p style="margin:0;font-size:17px">${money(total)} for ${BILL.period}. A receipt is saved under Recent.</p>

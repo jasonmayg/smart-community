@@ -2,7 +2,7 @@
 import { $, toast } from '../lib/ui.js';
 import { ico } from '../lib/icons.js';
 import { esc, int, pct, money } from '../lib/format.js';
-import { store, viewer, grant, revoke, updateUser, ASSET, REGISTRY } from '../state.js';
+import { store, viewer, grant, revoke, updateUser, ASSET, REGISTRY, orders } from '../state.js';
 import { GROUP, PROPERTIES, DEPARTMENTS, HOUSEHOLDS, ROLES, CAPABILITIES, permsOf, can, checkGrant, checkRevoke, contains, roleLabel, HOUSEHOLD_ROLES } from '../domain/org.js';
 import { assess } from '../domain/assets.js';
 import * as WO from '../domain/workorders.js';
@@ -31,7 +31,7 @@ const visible = (u, nd) => contains(u.scope, nd.scope) || contains(nd.scope, u.s
 
 // ------------------------------------------------------------------ portfolio (group view)
 function portfolio() {
-  const s = S(), open = s.orders.filter(WO.isOpen);
+  const s = S(), open = orders().filter(WO.isOpen);
   const live = { open: open.length, overdue: open.filter(o => WO.escalationLevel(o) > 0).length, fees: (FEE_COLLECTION.paidOnline + FEE_COLLECTION.paidDesk + (s.billPaid ? 1 : 0)) / FEE_COLLECTION.billed, atRisk: REGISTRY.filter(a => ['replace', 'failed'].includes(assess(a).status)).length, flags: 3 };
   return `<div class="grid cols-3">${PROPERTIES.map(p => { const k = p.live ? live : p.kpi; const pm = S().users.find(u => u.role === 'property_manager' && u.scope.property === p.id);
     return `<button class="card prop ${node === p.id ? 'on' : ''}" data-node="${p.id}"><div class="row"><div class="icon-tile">${ico('building')}</div><div style="text-align:left"><b>${p.name}</b><div class="tiny muted">${int(p.households)} households, ${p.buildings} buildings</div></div>${p.live ? '<span class="badge green" style="margin-left:auto">Live demo</span>' : ''}</div>

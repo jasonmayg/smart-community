@@ -42,6 +42,10 @@ The core product decision: **the daily touchpoints are the data.** A lunch order
   <img src="docs/screenshots/6-revenue.png" alt="Revenue by paying customer and per-payment splits" width="49%">
 </p>
 
+## Works offline
+
+Technicians work in pump rooms and elevator shafts; older residents are often on weak connections. The app installs as a PWA and **opens and runs with no network**. Work-order changes made offline are queued on the device as operations and **replayed on reconnect**: unchanged orders fast-forward, compatible changes merge, and contradictions (for example, the job was reassigned at the desk meanwhile) go to a person to review, with the decision written to the history. Payments pause offline, and the help button falls back to one-tap phone calls. Design notes: **[OFFLINE](docs/OFFLINE.md)**.
+
 ## The AI, honestly
 
 | Feature | How it works | Real or simulated |
@@ -70,12 +74,12 @@ Guardrails are built in. The AI never contacts a resident or acts on its own. Ev
 
 ## Tech
 
-Static site in HTML, CSS and vanilla JavaScript modules, with no build step and no backend. Domain logic (triage, work orders, facility lifecycle, access control, wellbeing, forecasts, ledger, assistant) is DOM-free and covered by 30 unit tests (`npm test`, Node 22) that run in CI. Demo state is saved in the browser (Settings → Reset demo). Live AI is optional; the API key stays in the tab’s memory.
+Static site in HTML, CSS and vanilla JavaScript modules, with no build step and no backend. Domain logic (triage, work orders, facility lifecycle, access control, wellbeing, forecasts, ledger, assistant) is DOM-free and covered by 40 unit tests (`npm test`, Node 22) that run in CI. Demo state is saved in the browser (Settings → Reset demo). Live AI is optional; the API key stays in the tab’s memory.
 
 ```
 assets/js/
   lib/       format, store, ui, icons, llm   (shared helpers)
-  domain/    data, triage, workorders, assets, org, wellbeing, forecast, routes, ledger, assistant   (pure, tested)
+  domain/    data, triage, workorders, sync, assets, org, wellbeing, forecast, routes, ledger, assistant   (pure, tested)
   views/     overview, resident, orders, facilities, care, canteen, market, revenue, org
   state.js   app state + actions        main.js   shell and router
 tests/       node:test suites for domain/

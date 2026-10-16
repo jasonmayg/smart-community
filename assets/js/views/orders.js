@@ -3,7 +3,7 @@ import { $, $$, toast, modal } from '../lib/ui.js';
 import { ico } from '../lib/icons.js';
 import { esc, pct, int } from '../lib/format.js';
 import { llmReady, ask, extractJSON } from '../lib/llm.js';
-import { store, viewer, act, log, ASSET, REGISTRY } from '../state.js';
+import { store, viewer, act, log, ASSET, REGISTRY, orders, transition, isOffline } from '../state.js';
 import { CATEGORIES, triage, fromModel, merge as mergeTriage, TRIAGE_SYSTEM } from '../domain/triage.js';
 import { DEPARTMENTS, permsOf, roleLabel } from '../domain/org.js';
 import * as WO from '../domain/workorders.js';
@@ -16,14 +16,14 @@ const S = () => store.data;
 // ------------------------------------------------------------------ scope
 function visibleOrders(u) {
   const p = permsOf(u);
-  if (p.has('wo.view.all')) return S().orders;
-  if (p.has('wo.view.dept')) return S().orders.filter(o => o.dept === u.scope.dept);
+  if (p.has('wo.view.all')) return orders();
+  if (p.has('wo.view.dept')) return orders().filter(o => o.dept === u.scope.dept);
   return [];
 }
 const statusPill = o => `<span class="pill st-${o.status}">${WO.STATES[o.status].label}</span>`;
 const deptName = d => DEPARTMENTS[d]?.name || d;
 const staffOf = dept => S().users.filter(u => u.scope.property === 'p1' && u.scope.dept === dept && ['staff', 'dept_lead'].includes(u.role));
-const load = name => S().orders.filter(o => WO.isOpen(o) && o.assignee === name).length;
+const load = name => orders().filter(o => WO.isOpen(o) && o.assignee === name).length;
 function recommend(dept) {
   const people = staffOf(dept).filter(u => u.role === 'staff');
   const pool = people.length ? people : staffOf(dept);
@@ -55,7 +55,7 @@ function detail(o, u) {
   const isAssignee = o.assignee === u.name;
   const acts = WO.actions(o, perms, { isAssignee });
   const asset = o.assetId ? ASSET[o.assetId] : null, ast = asset && assess(asset);
-  const dups = WO.isOpen(o) ? WO.findDuplicates(o, S().orders) : [];
+  const dups = WO.isOpen(o) ? WO.findDuplicates(o, orders()) : [];
   const rec = WO.isOpen(o) && !o.assignee ? recommend(o.dept) : null;
   const ai = o.ai, cat = CATEGORIES[ai.cat];
   const fixes = o.events.filter(e => e.kind === 'corrected');
@@ -86,7 +86,7 @@ function detail(o, u) {
 
 // ------------------------------------------------------------------ AI quality
 function quality() {
-  const q = WO.aiQuality(S().orders, S().aiHistory);
+  const q = WO.aiQuality(orders(), S().aiHistory);
   const r = triage(tryText), mx = Math.max(...Object.values(r.scores), 1);
   return `<div class="grid cols-3" style="margin-bottom:12px">
       <div class="mini"><span>Category right first time</span><b>${pct(q.catAcc, 1)}</b></div>
@@ -106,7 +106,7 @@ function paint() {
   if (!root?.isConnected) return;
   const u = viewer(), all = visibleOrders(u);
   const open = all.filter(WO.isOpen);
-  const q = WO.aiQuality(S().orders, S().aiHistory);
+  const q = WO.aiQuality(orders(), S().aiHistory);
   $('#kpis', root).innerHTML = [
     kpi('wrench', 'Open', open.length, `${open.filter(o => o.status === 'new').length} not yet assigned`),
     kpi('arrowUp', 'Overdue and escalated', open.filter(o => WO.escalationLevel(o) > 0).length, `${open.filter(o => WO.escalationLevel(o) >= 2).length} at property manager or above`),
@@ -151,7 +151,7 @@ export function renderOrders(el, sub) {
 }
 
 // ------------------------------------------------------------------ actions
-const done = (res, msg, icon) => { if (!res.ok) toast(res.reason, 'alert'); else if (msg) toast(msg, icon); return res.ok; };
+const done = (res, msg, icon) => { if (!res.ok) toast(res.reason, 'alert'); else if (msg) toast(res.queued ? `${msg.replace(/\.$/, '')}. Saved on this device; it will sync when you’re back online.` : msg, res.queued ? 'clock' : icon); return res.ok; };
 
 async function onClick(e) {
   const b = e.target.closest('button'); if (!b) return;
@@ -163,7 +163,7 @@ async function onClick(e) {
     try { tryModel = fromModel(extractJSON(await ask({ system: TRIAGE_SYSTEM, messages: [{ role: 'user', content: tryText }], maxTokens: 300 }))); } catch (err) { toast(err.message, 'alert'); }
     return paint();
   }
-  const o = S().orders.find(x => x.id === selected); if (!o) return;
+  const o = orders().find(x => x.id === selected); if (!o) return;
   const t = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   if (b.hasAttribute('data-claude')) {
     b.disabled = true; b.textContent = 'Asking…';
@@ -173,21 +173,21 @@ async function onClick(e) {
       const merged = mergeTriage(triage(o.text), m);
       if (merged.cat === o.cat && merged.urgency === o.urgency) toast('Claude agrees with the current triage.', 'sparkles');
       else modal('Claude suggests a change', `<p>${urgencyPill(merged.urgency)} <b>${CATEGORIES[merged.cat].label}</b> for ${deptName(WO.DEPT_OF[merged.cat])}.</p><p class="small muted">${esc(m.reason)}</p><p class="tiny muted">Urgency can only go up from the rules’ reading, never down.</p><button class="btn primary" id="apply">Apply as a correction</button>`, {
-        onMount(mm, close) { $('#apply', mm).onclick = () => { done(act(o.id, x => WO.correct(x, { cat: merged.cat, urgency: merged.urgency }, 'Claude second opinion', `${u.name} + Claude`, t)), 'Corrected'); close(); }; },
+        onMount(mm, close) { $('#apply', mm).onclick = () => { done(transition(o.id, 'correct', { patch: { cat: merged.cat, urgency: merged.urgency }, reason: 'Claude second opinion' }), 'Corrected'); close(); }; },
       });
     } catch (err) { toast(err.message, 'alert'); }
     return paint();
   }
   const a = b.dataset.act; if (!a) return;
-  if (a === 'start') return done(act(o.id, x => WO.start(x, u.name, t)), 'Work started');
-  if (a === 'resume') return done(act(o.id, x => WO.resume(x, u.name, t)), 'Work resumed');
+  if (a === 'start') return done(transition(o.id, 'start'), 'Work started');
+  if (a === 'resume') return done(transition(o.id, 'resume'), 'Work resumed');
   if (a === 'assign' || a === 'reassign') return assignModal(o, u, t);
-  if (a === 'hold') return pickModal('Put on hold', 'Why is it on hold?', WO.HOLD_REASONS, r => act(o.id, x => WO.hold(x, r, u.name, t)), 'On hold');
-  if (a === 'complete') return textModal('Mark complete', 'What was done?', 'e.g. Replaced LED fixture', note => act(o.id, x => WO.complete(x, note, u.name, t)), 'Completed. The resident is asked to confirm.');
-  if (a === 'expedite') return textModal('Expedite', 'Why does this need to go faster?', 'e.g. Resident is 84 and the corridor is dark at night', r => act(o.id, x => WO.expedite(x, r, u.name, t)), 'Expedited. The department lead was notified.', 'bolt');
-  if (a === 'confirm') return pickModal('Close for the resident', 'How did the resident rate it?', ['5', '4', '3', '2', '1'], r => act(o.id, x => WO.confirm(x, +r, `${u.name} for resident`, t)), 'Closed');
-  if (a === 'reopen') return textModal('Reopen', 'What is still wrong?', 'e.g. Light works but flickers', r => act(o.id, x => WO.reopen(x, r, u.name, t)), 'Reopened and sent back to the assignee');
-  if (a === 'merge') return mergeModal(o, u, t);
+  if (a === 'hold') return pickModal('Put on hold', 'Why is it on hold?', WO.HOLD_REASONS, r => transition(o.id, 'hold', { reason: r }), 'On hold');
+  if (a === 'complete') return textModal('Mark complete', 'What was done?', 'e.g. Replaced LED fixture', note => transition(o.id, 'complete', { note }), 'Completed. The resident is asked to confirm.');
+  if (a === 'expedite') return textModal('Expedite', 'Why does this need to go faster?', 'e.g. Resident is 84 and the corridor is dark at night', r => transition(o.id, 'expedite', { reason: r }), 'Expedited. The department lead was notified.', 'bolt');
+  if (a === 'confirm') return pickModal('Close for the resident', 'How did the resident rate it?', ['5', '4', '3', '2', '1'], r => transition(o.id, 'confirm', { rating: +r }), 'Closed');
+  if (a === 'reopen') return textModal('Reopen', 'What is still wrong?', 'e.g. Light works but flickers', r => transition(o.id, 'reopen', { reason: r }), 'Reopened and sent back to the assignee');
+  if (a === 'merge') return isOffline() ? toast('Merging duplicates needs a connection, so both requesters see the same order.', 'alert') : mergeModal(o, u, t);
   if (a === 'correct') return correctModal(o, u, t);
 }
 
@@ -205,7 +205,7 @@ function assignModal(o, u, t) {
       $('#go', m).onclick = () => {
         const dept = $('#d', m).value, who = $('#p', m).value;
         if (!who) return toast('Pick a person', 'alert');
-        if (done(act(o.id, x => { if (dept !== x.dept) WO.correct(x, { dept }, 'Wrong department', u.name, t); WO.assign(x, { dept, assignee: who }, u.name, t); }), `Assigned to ${who}`)) close();
+        if (done(transition(o.id, 'assign', { dept, assignee: who }), `Assigned to ${who}`)) close();
       };
     },
   });
@@ -224,8 +224,8 @@ function textModal(title, q, ph, run, msg, icon) {
 }
 
 function mergeModal(o, u, t) {
-  const dups = WO.findDuplicates(o, S().orders);
-  const others = S().orders.filter(x => x.id !== o.id && WO.isOpen(x) && !dups.includes(x));
+  const dups = WO.findDuplicates(o, orders());
+  const others = orders().filter(x => x.id !== o.id && WO.isOpen(x) && !dups.includes(x));
   modal('Merge as duplicate', `<p class="small" style="margin-top:0">Close <b>${o.id.toUpperCase()}</b> and add ${esc(o.who)} as a follower of the original, so they get the same updates.</p>
     <div class="stack" style="gap:8px">${[...dups, ...others].slice(0, 8).map(x => `<button class="btn ${dups.includes(x) ? 'primary' : 'secondary'}" data-into="${x.id}" style="justify-content:flex-start;white-space:normal;text-align:left">${dups.includes(x) ? `${ico('sparkles')}` : ''}${x.id.toUpperCase()}: ${esc(x.text.slice(0, 70))}</button>`).join('')}</div>`, {
     width: 520,
@@ -257,7 +257,7 @@ function correctModal(o, u, t) {
       $('#c', m).onchange = e => { $('#d', m).value = WO.DEPT_OF[e.target.value]; };
       $('#go', m).onclick = () => {
         const patch = { cat: $('#c', m).value, urgency: $('#g', m).value, dept: $('#d', m).value, assetId: $('#a', m).value || null };
-        const res = act(o.id, x => WO.correct(x, patch, $('#r', m).value, u.name, t));
+        const res = transition(o.id, 'correct', { patch, reason: $('#r', m).value });
         if (done(res, 'Corrected. Logged for triage accuracy.')) { close(); log('refresh', `<b>Work order ${o.id.toUpperCase()}</b> corrected by ${esc(u.name)}: ${esc($('#r', m)?.value || '')}.`); }
       };
     },

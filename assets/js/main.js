@@ -4,8 +4,11 @@ import { $, $$, modal, toast } from './lib/ui.js';
 import { ico } from './lib/icons.js';
 import { esc } from './lib/format.js';
 import { llm } from './lib/llm.js';
-import { store, viewer } from './state.js';
+import { store, viewer, isOffline, goOffline, goOnline, simulateDeskChange, resolveConflict } from './state.js';
 import { canSee, can, roleLabel } from './domain/org.js';
+
+/** Sync conflicts go to the person whose device made the change, and to anyone who can assign work. */
+const myConflicts = () => store.data.conflicts.map((c, i) => ({ c, i })).filter(({ c }) => can(viewer(), 'wo.assign') || c.ops[0].user === viewer().name);
 import { renderOverview } from './views/overview.js';
 import { renderResident } from './views/resident.js';
 import { renderOrders } from './views/orders.js';
@@ -58,7 +61,7 @@ function allowed(u, key) {
 const homeRoute = u => ['overview', 'orders', 'resident', 'org'].find(k => k !== 'overview' && allowed(u, k) && (k !== 'orders' || !u.scope.household)) || 'overview';
 
 const VIEWERS = [
-  ['Management', ['u0', 'u1', 'u2']], ['Departments', ['u3', 'u4', 'u5', 'u6', 'u8', 'u10', 'u11']], ['Households', ['u12', 'u14', 'u17']],
+  ['Management', ['u0', 'u1', 'u2']], ['Departments', ['u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u10', 'u11']], ['Households', ['u12', 'u14', 'u17']],
 ];
 function viewerSelect() {
   const users = store.data.users, me = viewer();
@@ -78,7 +81,8 @@ function shell() {
     </aside>
     <div class="scrim" id="scrim"></div>
     <div class="main">
-      <header class="topbar"><button class="btn icon ghost menu-btn" id="menuBtn" aria-label="Open navigation">${ico('menu')}</button><h1 id="pageTitle"></h1><span class="badge amber">Demo data</span><span class="spacer"></span><span id="viewerBox"></span><button class="btn secondary sm" id="settingsBtn" aria-label="Settings">${ico('settings')}<span class="hide-sm">Settings</span></button></header>
+      <header class="topbar"><button class="btn icon ghost menu-btn" id="menuBtn" aria-label="Open navigation">${ico('menu')}</button><h1 id="pageTitle"></h1><span class="badge amber">Demo data</span><span class="spacer"></span><span id="netBox"></span><span id="viewerBox"></span><button class="btn secondary sm" id="settingsBtn" aria-label="Settings">${ico('settings')}<span class="hide-sm">Settings</span></button></header>
+      <div id="netBanner"></div>
       <main class="content" id="content" tabindex="-1"></main>
     </div>
   </div>`;
@@ -107,6 +111,61 @@ function noAccess(c, u, r) {
     <p class="small muted">Access follows the organization: ${esc(u.name)} can open ${ok.map(k => `<a href="#/${k}">${ROUTES[k].title}</a>`).join(', ')}. Switch “Viewing as” at the top to see the product from another role.</p></div></div>`;
 }
 
+// ------------------------------------------------------------------ offline
+function paintNet() {
+  const s = store.data, off = s.offline;
+  $('#netBox').innerHTML = `<button class="net ${off ? 'off' : 'on'}" id="netBtn" title="${off ? 'Reconnect and sync' : 'Simulate losing the connection'}"><i></i>${off ? `Offline${off.outbox.length ? ` · ${off.outbox.length} queued` : ''}` : 'Online'}</button>`;
+  const b = $('#netBanner');
+  if (off) {
+    b.innerHTML = `<div class="net-banner off">${ico('clock')}<div><b>Offline since ${off.since}.</b> Everything still works: changes are saved on this device${off.outbox.length ? ` (${off.outbox.length} waiting)` : ''} and sync when you reconnect. Payments and live AI pause until then.</div>
+      <div class="row wrap" style="gap:8px">${off.outbox.length ? `<button class="btn secondary sm" id="deskChange">${ico('users')}Meanwhile, the desk changes something</button>` : ''}${off.reason === 'network' ? '<span class="small">Waiting for the network…</span>' : `<button class="btn primary sm" id="reconnect">${ico('refresh')}Reconnect and sync</button>`}</div></div>`;
+  } else if (myConflicts().length) {
+    const k = myConflicts().length;
+    b.innerHTML = `<div class="net-banner warn">${ico('alert')}<div><b>${k} offline change${k > 1 ? 's need' : ' needs'} review.</b> They clashed with changes made at the desk while the device was offline.</div><button class="btn primary sm" id="review">Review</button></div>`;
+  } else b.innerHTML = '';
+}
+
+function syncReport(r) {
+  const n = r.applied.length + r.merged.length;
+  modal('Back online', `<div class="stack" style="gap:12px">
+    <div class="grid cols-3"><div class="mini"><span>Synced as is</span><b>${r.applied.length}</b></div><div class="mini"><span>Merged with desk changes</span><b>${r.merged.length}</b></div><div class="mini"><span>Need review</span><b>${r.conflicts.length}</b></div></div>
+    <p class="small muted" style="margin:0">${n ? `${n} change${n > 1 ? 's' : ''} made offline ${n > 1 ? 'are' : 'is'} now on the server.` : 'Nothing was waiting.'}${r.skipped.length ? ` ${r.skipped.length} already applied or no longer needed.` : ''}</p>
+    ${r.conflicts.length && myConflicts().length ? '<button class="btn primary" id="toReview">Review conflicts</button>' : r.conflicts.length ? `<p class="small" style="margin:0">${r.conflicts.length} change${r.conflicts.length > 1 ? 's were' : ' was'} sent to ${esc(r.conflicts[0].ops[0].user)} and the department lead to review.</p><button class="btn primary" data-close>Done</button>` : '<button class="btn primary" data-close>Done</button>'}</div>`, {
+    width: 520, onMount(m, close) { const t = $('#toReview', m); if (t) t.onclick = () => { close(); reviewConflicts(); }; },
+  });
+}
+
+function reviewConflicts() {
+  const draw = m => {
+    const cs = myConflicts();
+    if (!cs.length) { m.closest('.modal-back').remove(); toast('All offline changes resolved'); return; }
+    $('.modal-b', m).innerHTML = `<div class="stack" style="gap:12px">${cs.map(({ c, i }) => { const o = store.data.orders.find(x => x.id === c.orderId);
+      return `<div class="conflict"><div class="small"><b>${c.orderId.toUpperCase()}</b>${o ? `: ${esc(o.text.slice(0, 70))}` : ''}</div>
+        <div class="small" style="color:var(--rose-ink)">${esc(c.reason)}</div>
+        <div class="tiny muted">Offline on ${esc(c.ops[0].device)}: ${c.ops.map(op => `${op.action}${op.args.note ? ` (“${esc(op.args.note)}”)` : ''} at ${op.t}`).join(', ')}</div>
+        <div class="row wrap" style="gap:8px;margin-top:8px"><button class="btn primary sm" data-res="${i}" data-c="mine">Apply the offline change</button><button class="btn secondary sm" data-res="${i}" data-c="server">Keep the desk’s version</button></div></div>`; }).join('')}
+      <p class="tiny muted" style="margin:0">Either way, the decision is written to the order’s history, so nothing is lost silently.</p></div>`;
+  };
+  modal('Review offline changes', '', { width: 560, onMount(m) { draw(m); m.addEventListener('click', e => { const b = e.target.closest('[data-res]'); if (!b) return; resolveConflict(+b.dataset.res, b.dataset.c); draw(m); }); } });
+}
+
+function wireNet() {
+  document.addEventListener('click', e => {
+    const id = e.target.closest('button')?.id;
+    if ((id === 'netBtn' || id === 'reconnect') && isOffline() && navigator.onLine === false) return toast('Still no network on this device. Your changes are safe here.', 'clock');
+    if (id === 'netBtn') { if (isOffline()) { const r = goOnline(); if (r) syncReport(r); } else { goOffline('manual'); toast('Offline mode: you can keep working. Changes sync when you reconnect.', 'clock'); } }
+    if (id === 'reconnect') { const r = goOnline(); if (r) syncReport(r); }
+    if (id === 'deskChange') { const t = simulateDeskChange(); toast(t ? `At the desk: ${t}` : 'Nothing to change at the desk', 'users'); }
+    if (id === 'review') reviewConflicts();
+  });
+  window.addEventListener('offline', () => { goOffline('network'); toast('Connection lost. You can keep working; changes are saved on this device.', 'clock'); });
+  window.addEventListener('online', () => { const r = goOnline(); if (r) syncReport(r); });
+  if (navigator.onLine === false) goOffline('network');
+  store.onChange(paintNet);
+  paintNet();
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
 let cleanup = null;
 function route() {
   const [key, sub] = location.hash.replace(/^#\/?/, '').split('/');
@@ -126,5 +185,6 @@ function route() {
 }
 
 shell();
+wireNet();
 window.addEventListener('hashchange', route);
 route();

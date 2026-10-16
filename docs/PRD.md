@@ -1,7 +1,7 @@
 # PRD: Smart Community (portfolio demo)
 
 **Author:** Jason Geng  
-**Status:** v3 prototype  
+**Status:** v3.1 prototype  
 **Type:** interactive prototype with simulated data
 
 > A from-scratch prototype with fictional data, based on a smart-community product I led. No original code, data, designs or names are used.
@@ -30,7 +30,7 @@ Residential communities are aging fast. A typical community of ~800 households h
 3. AI that routes work, flags risk and answers questions, always explains itself and never acts without a person.
 4. A business model that is visible: three paying customers.
 
-**Non-goals:** real payments, identity verification, medical advice, real messaging, real sensors.
+**Non-goals:** real payments, identity verification, medical advice, real messaging, real sensors, a real server (the demo’s “server” is the shared in-browser copy).
 
 ## 3. Personas and views
 
@@ -91,6 +91,12 @@ Residential communities are aging fast. A typical community of ~800 households h
 - O3 Anyone can grant only roles below their own and only inside their scope; department leads add staff to their department only; household heads add family only; only management registers a household head
 - O4 Pages and actions follow permissions (a technician sees his department’s orders and facility health; a household head sees his household)
 - O5 Every grant, removal and limit change is logged; the group sees a portfolio of its properties
+
+**Offline (v3.1)**
+- X1 The app opens and runs with no network (installable PWA)
+- X2 Technicians and desk staff keep working offline; changes are queued on the device and sync on reconnect
+- X3 Sync is idempotent; compatible changes merge automatically; contradictions (reassigned, closed, same field corrected) go to the device owner and their lead to review
+- X4 Residents can report and expedite offline; payments pause; the help button offers direct phone calls when offline
 
 **Merchants**
 - M1 Live deals with orders so far, minimum, forecast range and stock advice

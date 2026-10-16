@@ -17,6 +17,7 @@ assets/js/
     data.js           fictional community, residents, deals, pricing, handbook
     triage.js         request classifier, deadlines, model prompt + validation
     workorders.js     work-order state machine, expedite, escalation, corrections, merge, AI quality
+    sync.js           offline operations, outbox replay, merge rules, conflicts and their resolution
     assets.js         facility registry, Weibull lifecycle, optimal replacement, drift, batching, text→asset match
     org.js            group/property/department/household tree, roles, permissions, delegation rules
     wellbeing.js      explainable risk score and watchlist
@@ -25,7 +26,9 @@ assets/js/
     ledger.js         payment splits and revenue by customer
     assistant.js      offline answers, model prompt, reply validation
   views/              one file per page; render(root) returns a cleanup function
-tests/*.test.mjs      node:test (30 tests), run in CI on every push
+sw.js                 service worker: precached app shell, font cache, API never cached
+manifest.webmanifest  installable PWA
+tests/*.test.mjs      node:test (40 tests), run in CI on every push
 ```
 
 ## Rules the code follows
@@ -35,7 +38,7 @@ tests/*.test.mjs      node:test (30 tests), run in CI on every push
 3. **Views clean up after themselves.** `render(root)` returns an unsubscribe; the router calls it before mounting the next page, so listeners never pile up.
 4. **Model output is untrusted input.** `fromModel` and `parseModelReply` validate categories, urgencies and action types against fixed lists, and anything else falls back to the offline answer. The resident confirms every suggested action.
 5. **Permissions live in one place.** `domain/org.js` decides who can see a page (`canSee`), take an action (`can`), and grant or remove access (`checkGrant`, `checkRevoke`). Views ask; they never hard-code roles.
-6. **Work-order changes are transitions, not edits.** `state.act(id, fn)` runs a transition from `domain/workorders.js` on a copy; if it throws (for example, starting a closed order), nothing is saved and the reason is shown.
+6. **Work-order changes are operations, not edits.** `state.transition(id, action, args)` builds an operation (`domain/sync.js`) and applies it to the server copy online, or to the device copy plus an outbox offline. If the transition is invalid, nothing is saved and the reason is shown. See [OFFLINE](OFFLINE.md).
 7. **Every AI feature works offline.** The live model is an upgrade, not a dependency.
 
 ## Data flow example: “Water is leaking from my bathroom ceiling”

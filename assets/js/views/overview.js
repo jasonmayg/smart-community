@@ -3,7 +3,7 @@ import { ico } from '../lib/icons.js';
 import { int } from '../lib/format.js';
 import { COMMUNITY } from '../domain/data.js';
 import { currentWatchlist } from './care.js';
-import { store } from '../state.js';
+import { store, orders } from '../state.js';
 
 const MODULES = [
   ['resident', 'home', 'Resident app', 'Lunch, repairs, “I’m OK”, bills, group buys and an assistant, built for a 78-year-old: big buttons, voice input, read-aloud.'],
@@ -18,7 +18,7 @@ const MODULES = [
 
 export function renderOverview(el) {
   const s = store.data;
-  const open = s.orders.filter(o => ['new', 'assigned', 'in_progress', 'on_hold'].includes(o.status)).length, flags = currentWatchlist().length;
+  const open = orders().filter(o => ['new', 'assigned', 'in_progress', 'on_hold'].includes(o.status)).length, flags = currentWatchlist().length;
   el.innerHTML = `
   <div class="h-page"><div><h2>One app for an aging neighborhood</h2><p>${COMMUNITY.name} has ${int(COMMUNITY.households)} households and ${COMMUNITY.over65} residents over 65. The property office, the community canteen, care volunteers and local merchants each used to run their own channel. Here they share one system, so a skipped lunch can start a wellbeing check and a sentence typed by a resident reaches the right person.</p></div></div>
   <div class="grid cols-3">

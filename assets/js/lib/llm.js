@@ -2,8 +2,9 @@
 // with the visitor's own API key. The key lives in memory only and is never saved.
 // Every AI feature in the app has an offline fallback, so nothing depends on this.
 
-export const llm = { apiKey: '', model: 'claude-sonnet-5-5' };
-export const llmReady = () => !!llm.apiKey;
+export const llm = { apiKey: '', model: 'claude-sonnet-5-5', offline: false };
+/** Live AI needs a key and a connection; otherwise every feature uses its offline version. */
+export const llmReady = () => !!llm.apiKey && !llm.offline && globalThis.navigator?.onLine !== false;
 
 /** Send one user message (plus optional system prompt) and return the text reply. */
 export async function ask({ system, messages, maxTokens = 800 }) {
