@@ -1,0 +1,10 @@
+{
+  "name": "smart-community",
+  "private": true,
+  "type": "module",
+  "description": "Portfolio prototype: one app for a residential community's property desk, canteen, elder care and group buying.",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
