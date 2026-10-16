@@ -3,7 +3,7 @@ import { $, toast } from '../lib/ui.js';
 import { ico } from '../lib/icons.js';
 import { esc, int, money, pct } from '../lib/format.js';
 import { llmReady, ask } from '../lib/llm.js';
-import { store, viewer, REGISTRY, ASSET } from '../state.js';
+import { store, viewer, REGISTRY, ASSET, orders, addOrder } from '../state.js';
 import { TYPES, assess, batchPlan, fmtUse, pFail, DETECT } from '../domain/assets.js';
 import { can } from '../domain/org.js';
 import * as WO from '../domain/workorders.js';
@@ -19,7 +19,7 @@ const yrs = d => (d / 365).toFixed(1) + ' y';
 const when = st => ['replace', 'failed'].includes(st.status) ? 'Now' : st.replaceBy ? st.replaceBy.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Run to failure';
 const detectText = h => (h < 1 ? `~${Math.round(h * 60)} min` : `~${Math.round(h)} h`);
 
-function openOrderFor(id) { return store.data.orders.find(o => o.assetId === id && WO.isOpen(o)); }
+function openOrderFor(id) { return orders().find(o => o.assetId === id && WO.isOpen(o)); }
 
 // ------------------------------------------------------------------ charts
 function costCurve(x) {
@@ -113,7 +113,7 @@ function batches(u) {
 
 function offlinePlan() {
   const top = ITEMS.filter(x => x.st.status !== 'ok').sort((a, b) => ORDER[a.st.status] - ORDER[b.st.status] || b.st.p30 - a.st.p30);
-  const reported = store.data.orders.filter(o => WO.isOpen(o) && o.assetId && ['replace', 'failed'].includes(BY[o.assetId]?.st.status));
+  const reported = orders().filter(o => WO.isOpen(o) && o.assetId && ['replace', 'failed'].includes(BY[o.assetId]?.st.status));
   const lines = [];
   const f = top.find(x => x.st.status === 'failed'); if (f) lines.push(`Fix ${f.a.id} first: it has been out ${f.a.failed.hoursAgo} h and was only noticed after ${f.a.failed.detectedAfterH} h.`);
   const d = top.find(x => x.st.drift.z > 6); if (d) lines.push(`Replace ${d.a.id} this week: ${TYPES[d.a.type].signal.toLowerCase()} jumped ${d.st.drift.z.toFixed(0)}σ above its own baseline${reported.some(o => o.assetId === d.a.id) ? ', and a resident has already reported it' : ''}.`);
@@ -207,12 +207,12 @@ async function onClick(e) {
   if (b.hasAttribute('data-more')) { showAll = true; return paint(); }
   if (b.dataset.wo) {
     const o = createOrder(BY[b.dataset.wo], u);
-    store.update(s => { s.orders.unshift(o); s.planned[b.dataset.wo] = o.id; });
+    addOrder(o); store.update(s => { s.planned[b.dataset.wo] = o.id; });
     return toast(`Work order ${o.id.toUpperCase()} created for Maintenance`, 'wrench');
   }
   if (b.hasAttribute('data-approve')) {
     const plan = batchPlan(ITEMS); let n = 0;
-    store.update(s => { plan.forEach(v => v.items.forEach(x => { if (!s.orders.some(o => o.assetId === x.a.id && WO.isOpen(o))) { const o = createOrder(x, u, 'Replacement plan'); s.orders.unshift(o); s.planned[x.a.id] = o.id; n++; } })); });
+    plan.forEach(v => v.items.forEach(x => { if (!orders().some(o => o.assetId === x.a.id && WO.isOpen(o))) { const o = createOrder(x, u, 'Replacement plan'); addOrder(o); n++; } }));
     return toast(n ? `${n} preventive work orders created` : 'Every planned item already has an open order', 'check');
   }
   if (b.hasAttribute('data-claude')) {

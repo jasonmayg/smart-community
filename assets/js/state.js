@@ -8,6 +8,8 @@ import { SEED_REQUESTS, DEALS, BILL, R, ME } from './domain/data.js';
 import { SEED_USERS, checkGrant, checkRevoke, roleLabel } from './domain/org.js';
 import { buildRegistry, matchAsset } from './domain/assets.js';
 import * as WO from './domain/workorders.js';
+import * as SYNC from './domain/sync.js';
+import { llm } from './lib/llm.js';
 
 /** Facility registry is derived data (rebuilt on load), not saved state. */
 export const REGISTRY = buildRegistry();
@@ -42,8 +44,13 @@ function seedOrders() {
 }
 
 export const defaults = () => ({
-  v: 2,
+  v: 3,
   viewer: 'u2',
+  online: true,
+  offline: null, // { orders, outbox, since, device } while this device is offline
+  appliedOps: [],
+  conflicts: [],
+  syncLog: [],
   wallet: 248.6,
   txns: [
     { t: 'Oct 14', label: 'Lunch, steamed fish', amount: -5.5, kind: 'lunch' },
@@ -73,7 +80,7 @@ export const defaults = () => ({
   weather: 'sun',
 });
 
-export const store = createStore('cm3_state', defaults);
+export const store = createStore('cm4_state', defaults);
 const S = () => store.data;
 
 export const viewer = () => S().users.find(u => u.id === S().viewer) || S().users[0];
@@ -85,6 +92,7 @@ export function log(icon, html) {
 
 /** Charge the resident wallet and record where the money goes. */
 export function pay({ kind, amount, label, delivery }) {
+  if (isOffline()) return { ok: false, offline: true, reason: 'Payments need a connection. Nothing was charged.' };
   if (S().wallet + 1e-9 < amount) return { ok: false, reason: `Not enough in your wallet (${money(S().wallet)}).` };
   const parts = split({ kind, amount, delivery });
   store.update(s => {
@@ -103,7 +111,7 @@ export function topUp(amount, by = 'your daughter') {
 export function fileRequest(text, triaged, { who = `${R[ME].name}, ${R[ME].apt}`, src = 'App', household = null } = {}) {
   const asset = assetFor(text, triaged, who);
   const o = WO.create({ id: 'q' + Date.now(), text, who, src, t: timeNow(), triage: triaged, asset, household: household || (who.startsWith(R[ME].name) ? 'h1' : null) });
-  store.update(s => { s.orders.unshift(o); });
+  addOrder(o);
   return o;
 }
 
@@ -156,3 +164,87 @@ export function updateUser(actor, userId, patch, what) {
 }
 
 export const billTotal = () => BILL.lines.reduce((a, l) => a + l[1], 0);
+
+// ------------------------------------------------------------------ offline-first work orders
+// Online, every change is applied to the shared (server) copy. Offline, the device works on its own
+// copy and queues operations in an outbox, which sync.js replays when the connection comes back.
+export const isOffline = () => !!S().offline;
+/** The orders this device should show: its own copy while offline. */
+export const orders = () => (S().offline ? S().offline.orders : S().orders);
+const opId = () => 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const clock = () => timeNow();
+
+/** Run a transition (see sync.RUN) on an order, online or offline. */
+export function transition(id, action, args = {}) {
+  const u = viewer(), list = structuredClone(orders()), o = list.find(x => x.id === id);
+  if (!o) return { ok: false, reason: 'Order not found.' };
+  const op = SYNC.makeOp({ id: opId(), device: u.name, user: u.name, order: o, action, args, t: clock() });
+  try { SYNC.apply(list, op); } catch (e) { return { ok: false, reason: e.message }; }
+  store.update(s => {
+    if (s.offline) { s.offline.orders = list; s.offline.outbox.push(op); }
+    else { s.orders = list; s.appliedOps.push(op.id); s.appliedOps = s.appliedOps.slice(-500); }
+  });
+  return { ok: true, order: list.find(x => x.id === id), queued: isOffline() };
+}
+
+/** Add a new order (resident report, preventive replacement), online or offline. */
+export function addOrder(o) {
+  o.v = 0;
+  if (S().offline) {
+    const op = SYNC.makeCreate({ id: opId(), device: viewer().name, user: viewer().name, order: o, t: clock() });
+    store.update(s => { s.offline.orders.unshift(structuredClone(o)); s.offline.outbox.push(op); });
+  } else store.update(s => { s.orders.unshift(o); });
+}
+
+export function goOffline(reason = 'manual') {
+  if (S().offline) return;
+  llm.offline = true;
+  store.update(s => { s.offline = { orders: structuredClone(s.orders), outbox: [], since: clock(), device: viewer().name, reason }; });
+}
+
+/** Reconnect: replay the outbox against the server copy. Returns the sync report. */
+export function goOnline() {
+  llm.offline = false;
+  const off = S().offline; if (!off) return null;
+  const r = SYNC.sync(S().orders, off.outbox, S().appliedOps);
+  store.update(s => {
+    s.orders = r.orders; s.appliedOps = r.appliedIds.slice(-500); s.offline = null;
+    s.conflicts = [...s.conflicts, ...r.conflicts];
+    s.syncLog.unshift({ t: clock(), device: off.device, since: off.since, applied: r.applied.length, merged: r.merged.length, skipped: r.skipped.length, conflicts: r.conflicts.length });
+  });
+  return r;
+}
+
+/** Resolve a sync conflict: 'mine' applies the offline changes, 'server' keeps the desk's version. */
+export function resolveConflict(i, choice) {
+  const c = S().conflicts[i]; if (!c) return;
+  store.update(s => {
+    const fn = choice === 'mine' ? SYNC.applyOverride : SYNC.discard;
+    fn(s.orders, c, viewer().name, clock());
+    c.ops.forEach(op => s.appliedOps.push(op.id));
+    s.conflicts.splice(i, 1);
+  });
+}
+
+/**
+ * Demo helper: while this device is offline, make a change at the desk (on the server copy) that touches
+ * an order the device has also changed, so the sync has something real to reconcile.
+ */
+export function simulateDeskChange() {
+  const off = S().offline; if (!off) return null;
+  const touched = [...new Set(off.outbox.map(o => o.orderId))];
+  const target = S().orders.find(o => touched.includes(o.id) && WO.isOpen(o)) || S().orders.find(o => WO.isOpen(o) && o.assignee);
+  if (!target) return null;
+  let text = '';
+  store.update(s => {
+    const o = s.orders.find(x => x.id === target.id);
+    if (o.assignee && o.dept === 'maintenance') {
+      const to = o.assignee === 'Raj Patel' ? 'Leo Chang' : 'Raj Patel';
+      WO.assign(o, { assignee: to }, 'Marco Ruiz', clock()); text = `Marco Ruiz reassigned ${o.id.toUpperCase()} to ${to}`;
+    } else if (o.urgency !== 'urgent') {
+      WO.expedite(o, 'Called the front desk', 'Mia Torres', clock()); text = `Mia Torres expedited ${o.id.toUpperCase()}`;
+    } else { WO.correct(o, { urgency: 'high' }, 'Urgency too high', 'Priya Nair', clock()); text = `Priya Nair lowered ${o.id.toUpperCase()} to high`; }
+    o.v = (o.v || 0) + 1;
+  });
+  return text;
+}
