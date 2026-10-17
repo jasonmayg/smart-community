@@ -7,6 +7,11 @@
 Suggested path: **Resident app** (report a problem, mark it urgent, confirm a fix) → **Work orders** → **Facilities** → **Organization**. Use **Viewing as** at the top to see the product as a group admin, a technician or a household head.
 
 <p align="center">
+  <a href="docs/demo.mp4"><img src="docs/demo.gif" alt="2-minute walkthrough: a resident reports a problem, it becomes a work order, facility lifecycle predictions, delegated access, offline mode" width="92%"></a><br>
+  <sub>2-minute walkthrough: a resident reports a problem, it becomes a work order, facility lifecycle predictions, delegated access, offline mode. ▶ <a href="docs/demo.mp4">Full video with captions (MP4, 2 min)</a></sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/1-resident.png" alt="Resident app with large buttons; on the right, a live feed of what each tap triggered across the system" width="92%">
 </p>
 

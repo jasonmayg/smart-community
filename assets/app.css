@@ -384,3 +384,6 @@ table.assets tr.on td{background:var(--brand-soft)}
 @media (max-width:960px){.net-banner{padding:10px 16px}}
 .conflict{border:1px solid var(--border);border-radius:12px;padding:12px}
 a.big{text-decoration:none}
+
+/* inline icons inside dialog text */
+.modal-b p svg,.modal-b .small svg,.modal-b .tiny svg{width:16px;height:16px;vertical-align:-3px}
