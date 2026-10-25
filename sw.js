@@ -1,7 +1,7 @@
 // Service worker: makes the app open and run with no network.
 // App files are precached on install (cache-first); fonts are cached as they load; the model API is never cached.
 // Bump VERSION whenever a file changes so devices pick up the new build. tests/pwa.test.mjs checks the list.
-const VERSION = 'sc-v4-3';
+const VERSION = 'sc-v4-4';
 const PRECACHE = [
   './',
   'index.html',
@@ -25,7 +25,7 @@ const PRECACHE = [
   'assets/js/lib/icons.js',
   'assets/js/lib/llm.js',
   'assets/js/lib/store.js',
-  'assets/js/lib/ui.js',
+  'assets/js/lib/ui.js', 'assets/js/lib/tour.js',
   'assets/js/main.js',
   'assets/js/state.js',
   'assets/js/views/canteen.js',

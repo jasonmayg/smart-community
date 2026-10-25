@@ -9,6 +9,7 @@ import { canSee, can, roleLabel } from './domain/org.js';
 
 /** Sync conflicts go to the person whose device made the change, and to anyone who can assign work. */
 const myConflicts = () => store.data.conflicts.map((c, i) => ({ c, i })).filter(({ c }) => can(viewer(), 'wo.assign') || c.ops[0].user === viewer().name);
+import { startTour, tourSeen } from './lib/tour.js';
 import { renderOverview } from './views/overview.js';
 import { renderResident } from './views/resident.js';
 import { renderOrders } from './views/orders.js';
@@ -30,6 +31,16 @@ const ROUTES = {
   revenue: { title: 'Revenue', group: 'Business', icon: 'chart', render: renderRevenue },
   org: { title: 'Organization', group: 'Business', icon: 'users', render: renderOrg },
 };
+
+const TOUR = [
+  { title: 'Smart Community in one minute', body: 'One system for a property group and its aging neighborhoods: requests, repairs, facilities, care, a canteen and group buying. Fictional data, real algorithms. Six quick stops.' },
+  { route: 'resident', sel: '#phoneScreen', title: 'Built for a 78-year-old', body: 'Mrs. Chen reports a problem in one sentence or by voice. AI works out what it is, how urgent, and who should fix it, then tells her in plain words what happens next.' },
+  { route: 'orders', sel: '#list', title: 'Every request becomes a work order', body: 'Each order shows the AI’s category and the cues behind it, a response deadline, escalation when it runs late, and corrections that measure how good the triage really is.' },
+  { route: 'facilities', sel: '#kpis', title: 'Fix things before residents notice', body: 'Every light, door reader and elevator door has a predicted chance of failing and a best replacement date, from a usage-based life model with a cost check.' },
+  { sel: '#netBtn', title: 'Works offline', body: 'Click <b>Online</b> to cut the connection. Staff keep working; changes sync on reconnect, and real clashes go to a person to decide.' },
+  { sel: '#viewerSel', title: 'Same product, every role', body: 'Switch between a group admin, a property manager, a technician or a household head. Access is delegated level by level, and every grant is logged.' },
+  { sel: '#tourBtn', title: 'That’s the tour', body: 'Replay it any time from here. <b>Settings → Reset demo</b> starts everything fresh.' },
+];
 
 function openSettings() {
   modal('Settings', `
@@ -81,7 +92,7 @@ function shell() {
     </aside>
     <div class="scrim" id="scrim"></div>
     <div class="main">
-      <header class="topbar"><button class="btn icon ghost menu-btn" id="menuBtn" aria-label="Open navigation">${ico('menu')}</button><h1 id="pageTitle"></h1><span class="badge amber">Demo data</span><span class="spacer"></span><span id="netBox"></span><span id="viewerBox"></span><button class="btn secondary sm" id="settingsBtn" aria-label="Settings">${ico('settings')}<span class="hide-sm">Settings</span></button></header>
+      <header class="topbar"><button class="btn icon ghost menu-btn" id="menuBtn" aria-label="Open navigation">${ico('menu')}</button><h1 id="pageTitle"></h1><span class="badge amber">Demo data</span><span class="spacer"></span><span id="netBox"></span><span id="viewerBox"></span><button class="btn ghost sm" id="tourBtn" aria-label="Take the tour">${ico('sparkles')}<span class="hide-sm">Tour</span></button><button class="btn secondary sm" id="settingsBtn" aria-label="Settings">${ico('settings')}<span class="hide-sm">Settings</span></button></header>
       <div id="netBanner"></div>
       <main class="content" id="content" tabindex="-1"></main>
     </div>
@@ -89,6 +100,7 @@ function shell() {
   $('#menuBtn').onclick = () => $('#app').classList.add('nav-open');
   $('#scrim').onclick = () => $('#app').classList.remove('nav-open');
   $('#settingsBtn').onclick = openSettings;
+  $('#tourBtn').onclick = () => startTour(TOUR);
   $('#viewerBox').onchange = e => {
     if (e.target.id !== 'viewerSel') return;
     store.update(s => { s.viewer = e.target.value; });
@@ -188,3 +200,4 @@ shell();
 wireNet();
 window.addEventListener('hashchange', route);
 route();
+if (!tourSeen() && !/[?&]tour=0\b/.test(location.search)) setTimeout(() => startTour(TOUR), 500);

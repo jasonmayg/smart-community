@@ -4,7 +4,7 @@
 
 ▶ **[Open the live prototype](https://jasonmayg.github.io/smart-community/)**. It runs in the browser with no sign-up.
 
-Suggested path: **Resident app** (report a problem, mark it urgent, confirm a fix) → **Work orders** → **Facilities** → **Organization**. Use **Viewing as** at the top to see the product as a group admin, a technician or a household head.
+A 60-second guided tour opens on your first visit (replay it from **Tour** at the top). Suggested path: **Resident app** (report a problem, mark it urgent, confirm a fix) → **Work orders** → **Facilities** → **Organization**. Use **Viewing as** at the top to see the product as a group admin, a technician or a household head.
 
 <p align="center">
   <a href="docs/demo.mp4"><img src="docs/demo.gif" alt="2-minute walkthrough: a resident reports a problem, it becomes a work order, facility lifecycle predictions, delegated access, offline mode" width="92%"></a><br>
