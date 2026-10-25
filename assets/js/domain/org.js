@@ -158,6 +158,7 @@ export const ROUTE_PERMS = {
   resident: ['resident.app', 'resident.preview'],
   orders: ['wo.view.all', 'wo.view.dept'],
   evaluation: ['wo.view.all'],
+  metrics: ['wo.view.all'],
   facilities: ['assets.view'],
   care: ['care.view'],
   canteen: ['canteen.manage'],

@@ -186,3 +186,20 @@ test('rules baseline is scored and the matrix adds up', () => {
   assert.equal(total, LABELED.length);
   assert.ok(s.catAcc > 0.4 && s.catAcc < 1);
 });
+
+// ---- Product metrics ----
+import { weeklyHistory, FUNNEL, AI_TRIAGE_WEEK, STORM_WEEK } from '../assets/js/domain/metrics.js';
+test('metrics history is deterministic and has 8 weeks', () => {
+  assert.deepEqual(weeklyHistory(), weeklyHistory());
+  assert.equal(weeklyHistory().length, 8);
+});
+test('override rate falls after model triage; storm week has the most requests', () => {
+  const w = weeklyHistory();
+  const mean = a => a.reduce((s, x) => s + x.override, 0) / a.length;
+  assert.ok(mean(w.slice(AI_TRIAGE_WEEK)) < mean(w.slice(0, AI_TRIAGE_WEEK)) / 1.5);
+  assert.equal(w.reduce((m, x, i) => (x.requests > w[m].requests ? i : m), 0), STORM_WEEK);
+  w.forEach(x => assert.ok(x.urgentOnTime >= 0.95, 'urgent guardrail holds every week'));
+});
+test('request funnel only narrows', () => {
+  FUNNEL.slice(1).forEach(([, n], i) => assert.ok(n <= FUNNEL[i][1]));
+});

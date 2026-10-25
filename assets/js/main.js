@@ -20,9 +20,11 @@ import { renderCanteen } from './views/canteen.js';
 import { renderMarket } from './views/market.js';
 import { renderRevenue } from './views/revenue.js';
 import { renderEvaluation } from './views/evaluation.js';
+import { renderMetrics } from './views/metrics.js';
 
 const ROUTES = {
   overview: { title: 'Overview', group: 'Product', icon: 'sparkles', render: renderOverview },
+  metrics: { title: 'Product metrics', group: 'Product', icon: 'trend', render: renderMetrics },
   resident: { title: 'Resident app', group: 'Residents', icon: 'home', render: renderResident, badge: 'AI' },
   orders: { title: 'Work orders', group: 'Operations', icon: 'wrench', render: renderOrders, badge: 'AI' },
   evaluation: { title: 'Triage evaluation', group: 'Operations', icon: 'chart', render: renderEvaluation, badge: 'AI' },
