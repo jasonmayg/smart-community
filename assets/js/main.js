@@ -19,11 +19,13 @@ import { renderCare } from './views/care.js';
 import { renderCanteen } from './views/canteen.js';
 import { renderMarket } from './views/market.js';
 import { renderRevenue } from './views/revenue.js';
+import { renderEvaluation } from './views/evaluation.js';
 
 const ROUTES = {
   overview: { title: 'Overview', group: 'Product', icon: 'sparkles', render: renderOverview },
   resident: { title: 'Resident app', group: 'Residents', icon: 'home', render: renderResident, badge: 'AI' },
   orders: { title: 'Work orders', group: 'Operations', icon: 'wrench', render: renderOrders, badge: 'AI' },
+  evaluation: { title: 'Triage evaluation', group: 'Operations', icon: 'chart', render: renderEvaluation, badge: 'AI' },
   facilities: { title: 'Facilities', group: 'Operations', icon: 'bolt', render: renderFacilities, badge: 'AI' },
   care: { title: 'Care', group: 'Operations', icon: 'heart', render: renderCare, badge: 'AI' },
   canteen: { title: 'Canteen', group: 'Services', icon: 'utensils', render: renderCanteen },

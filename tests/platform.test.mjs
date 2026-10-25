@@ -157,3 +157,32 @@ test('work orders: actions depend on state and permissions', () => {
   assert.deepEqual(WO.actions(o, tech, { isAssignee: false }), []);
   assert.ok(WO.actions(o, head, { isRequester: true }).includes('expedite'));
 });
+
+// ---------- triage evaluation ----------
+import { LABELED, scoreTriage, runSync } from '../assets/js/domain/triageEval.js';
+import { triage as triageRules } from '../assets/js/domain/triage.js';
+
+test('labeled set is well formed', () => {
+  const ids = new Set(LABELED.map(x => x.id));
+  assert.equal(ids.size, LABELED.length);
+  for (const x of LABELED) { assert.ok(['repair', 'safety', 'care', 'sanitation', 'noise', 'billing', 'services'].includes(x.cat), x.id); assert.ok(['urgent', 'high', 'normal'].includes(x.urgency), x.id); }
+});
+
+test('a perfect classifier scores 100% and misses nothing', () => {
+  const s = scoreTriage(Object.fromEntries(LABELED.map(x => [x.id, { cat: x.cat, urgency: x.urgency }])));
+  assert.equal(s.catAcc, 1); assert.equal(s.urgentRecall, 1); assert.equal(s.underRate, 0); assert.equal(s.misses.length, 0);
+});
+
+test('under-calling an urgent request counts as a severe miss', () => {
+  const preds = Object.fromEntries(LABELED.map(x => [x.id, { cat: x.cat, urgency: x.urgency }]));
+  const u = LABELED.find(x => x.urgency === 'urgent'); preds[u.id] = { cat: u.cat, urgency: 'normal' };
+  const s = scoreTriage(preds);
+  assert.equal(s.severeMisses, 1); assert.ok(s.misses[0].id === u.id && s.misses[0].under);
+});
+
+test('rules baseline is scored and the matrix adds up', () => {
+  const s = scoreTriage(runSync(triageRules));
+  let total = 0; for (const a in s.matrix) for (const b in s.matrix[a]) total += s.matrix[a][b];
+  assert.equal(total, LABELED.length);
+  assert.ok(s.catAcc > 0.4 && s.catAcc < 1);
+});

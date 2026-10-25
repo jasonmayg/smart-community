@@ -7,7 +7,11 @@ export const llm = { apiKey: '', model: 'claude-sonnet-5-5', offline: false };
 export const llmReady = () => !!llm.apiKey && !llm.offline && globalThis.navigator?.onLine !== false;
 
 /** Send one user message (plus optional system prompt) and return the text reply. */
-export async function ask({ system, messages, maxTokens = 800 }) {
+export async function ask(opts) { return (await askFull(opts)).text; }
+
+/** Same as ask, plus token usage and latency (for evaluation runs). */
+export async function askFull({ system, messages, maxTokens = 800 }) {
+  const t0 = performance.now();
   if (!llm.apiKey) throw new Error('Add an Anthropic API key in Settings to use the live model.');
   let res;
   try {
@@ -28,7 +32,7 @@ export async function ask({ system, messages, maxTokens = 800 }) {
     throw new Error(msg);
   }
   const j = await res.json();
-  return (j.content || []).map(c => c.text || '').join('');
+  return { text: (j.content || []).map(c => c.text || '').join(''), usage: j.usage || {}, ms: performance.now() - t0 };
 }
 
 /** Pull the first JSON object out of a model reply. */

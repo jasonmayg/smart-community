@@ -402,3 +402,21 @@ a.big{text-decoration:none}
 @media (prefers-reduced-motion:reduce){.tour-spot,.tour-card{transition:none}}
 
 @media (max-width:480px){.topbar{gap:8px;padding:10px 12px}.topbar h1{display:none}.viewer select{max-width:132px}}
+
+/* Triage evaluation */
+.run-box{margin-top:14px;padding:12px;border:1px dashed var(--border-strong);border-radius:var(--r-md);display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.run-box .row{display:flex;align-items:center;gap:8px}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.miss{padding:10px 12px;border-radius:12px;background:var(--surface-2)}
+.miss .tiny{margin-top:6px}
+.tag{display:inline-block;border-radius:999px;padding:2px 8px;margin:2px 4px 0 0;font-weight:600}
+.tag.ok{background:var(--leaf-soft);color:var(--leaf-ink)}
+.tag.bad{background:var(--rose-soft);color:var(--rose-ink)}
+.bad-text{color:var(--rose-ink)}
+.t td.nowrap{white-space:nowrap}
+.t.cm th,.t.cm td{padding:7px 8px;font-size:13px}
+.ev-list{padding-left:18px;margin:0}.ev-list li{margin-bottom:9px}
+.run-box svg{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
+.ev-list .tag,.tag:not(.ok):not(.bad){background:var(--surface-2);color:var(--ink-2);font-size:11.5px}
+.ev-list .tag{margin-right:6px}
